@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catch Me If You Can Describe Me: OVCIS with Diffusion | IJCV 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Reset & Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0e0f0d;
+      --bg2:       #141610;
+      --bg3:       #1a1d16;
+      --border:    rgba(160,185,120,0.18);
+      --accent:    #8fba5a;
+      --accent2:   #c8e89a;
+      --text:      #d8ddd0;
+      --text-dim:  #8a9080;
+      --text-muted:#5a6050;
+      --white:     #f0f4e8;
+      --serif:     'EB Garamond', Georgia, serif;
+      --sans:      'Outfit', sans-serif;
+      --mono:      'DM Mono', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-weight: 300;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    ::selection { background: rgba(143,186,90,0.3); }
+
+    /* ─── Noise overlay ────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0; opacity: .55;
+    }
+
+    /* ─── Scrollbar ────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+    /* ─── Nav ──────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 3rem;
+      backdrop-filter: blur(18px);
+      background: rgba(14,15,13,0.7);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--mono); font-size: .8rem;
+      color: var(--accent); letter-spacing: .1em;
+    }
+    .nav-links { display: flex; gap: 2rem; }
+    .nav-links a {
+      font-size: .82rem; font-weight: 400; letter-spacing: .06em;
+      color: var(--text-dim); text-decoration: none;
+      text-transform: uppercase;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--accent2); }
+
+    /* ─── Hero ─────────────────────────────────────────────── */
+    #hero {
+      position: relative; min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 7rem 2rem 4rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .hero-bg-rings {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .hero-bg-rings span {
+      position: absolute; border-radius: 50%;
+      border: 1px solid rgba(143,186,90,.07);
+      animation: pulse 8s ease-in-out infinite;
+    }
+    .hero-bg-rings span:nth-child(1) { width: 300px; height: 300px; animation-delay: 0s; }
+    .hero-bg-rings span:nth-child(2) { width: 550px; height: 550px; animation-delay: 1.5s; }
+    .hero-bg-rings span:nth-child(3) { width: 800px; height: 800px; animation-delay: 3s; }
+    .hero-bg-rings span:nth-child(4) { width: 1100px; height: 1100px; animation-delay: 4.5s; }
+    @keyframes pulse {
+      0%, 100% { opacity: .4; transform: scale(1); }
+      50% { opacity: .9; transform: scale(1.015); }
+    }
+
+    .venue-badge {
+      display: inline-block;
+      font-family: var(--mono); font-size: .75rem; letter-spacing: .12em;
+      color: var(--accent); border: 1px solid var(--accent);
+      padding: .3rem .9rem; border-radius: 2px; margin-bottom: 2rem;
+      animation: fadeUp .6s ease both;
+    }
+    .hero-title {
+      font-family: var(--serif); font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 500; line-height: 1.2; max-width: 900px;
+      color: var(--white); margin-bottom: 1rem;
+      animation: fadeUp .7s ease both .1s;
+    }
+    .hero-title em { color: var(--accent); font-style: italic; }
+    .hero-subtitle {
+      font-family: var(--mono); font-size: .9rem;
+      color: var(--text-dim); margin-bottom: 3rem;
+      animation: fadeUp .7s ease both .2s;
+    }
+
+    /* Authors */
+    .authors {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem 1.2rem;
+      max-width: 780px; margin-bottom: .8rem;
+      animation: fadeUp .7s ease both .3s;
+    }
+    .author { font-size: .9rem; color: var(--text-dim); }
+    .author sup { color: var(--accent); font-size: .7rem; }
+    .author.corr::after { content: '✉'; font-size: .7rem; color: var(--accent); margin-left: .15rem; }
+    .affiliations {
+      font-size: .78rem; color: var(--text-muted); max-width: 760px; margin-bottom: 2.5rem;
+      animation: fadeUp .7s ease both .35s;
+    }
+
+    /* Buttons */
+    .hero-btns {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem;
+      animation: fadeUp .7s ease both .4s;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .65rem 1.5rem; font-size: .85rem; font-family: var(--mono);
+      letter-spacing: .05em; text-decoration: none;
+      border-radius: 2px; transition: all .25s; cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--accent); color: #0a0c08; border: 1px solid var(--accent);
+    }
+    .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); transform: translateY(-2px); }
+    .btn-outline {
+      background: transparent; color: var(--accent); border: 1px solid var(--accent);
+    }
+    .btn-outline:hover { background: rgba(143,186,90,.1); transform: translateY(-2px); }
+    .btn svg { width: 16px; height: 16px; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Sections ─────────────────────────────────────────── */
+    section { position: relative; z-index: 1; }
+    .container { max-width: 1060px; margin: 0 auto; padding: 0 2rem; }
+
+    .section-label {
+      font-family: var(--mono); font-size: .72rem; letter-spacing: .18em;
+      text-transform: uppercase; color: var(--accent);
+      margin-bottom: .6rem;
+    }
+    .section-title {
+      font-family: var(--serif); font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 500; color: var(--white); margin-bottom: 1.5rem;
+    }
+    .divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0;
+    }
+
+    /* ─── Abstract ─────────────────────────────────────────── */
+    #abstract { padding: 6rem 0; }
+    .abstract-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+    .abstract-text {
+      font-family: var(--serif); font-size: 1.1rem; line-height: 1.85;
+      color: var(--text);
+    }
+    .abstract-text p + p { margin-top: 1rem; }
+    .abstract-keywords { margin-top: 1.5rem; }
+    .kw-label { font-family: var(--mono); font-size: .72rem; color: var(--text-muted); margin-bottom: .6rem; }
+    .kw-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .kw {
+      font-family: var(--mono); font-size: .72rem; color: var(--text-dim);
+      border: 1px solid var(--border); padding: .2rem .6rem; border-radius: 2px;
+    }
+    .teaser-card {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1.5rem; position: relative; overflow: hidden;
+    }
+    .teaser-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+    .teaser-title { font-family: var(--mono); font-size: .72rem; color: var(--accent); margin-bottom: 1rem; }
+    /* Task comparison table */
+    .task-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .task-table th {
+      font-family: var(--mono); font-size: .68rem; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--text-muted);
+      padding: .5rem .7rem; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    .task-table td { padding: .55rem .7rem; border-bottom: 1px solid rgba(160,185,120,0.07); vertical-align: top; }
+    .task-table tr:last-child td { border-bottom: none; }
+    .task-table .highlight td { background: rgba(143,186,90,0.05); }
+    .task-table .highlight td:first-child { color: var(--accent); font-weight: 500; }
+    .check { color: var(--accent); }
+    .cross { color: var(--text-muted); }
+
+    /* ─── Key Contributions ────────────────────────────────── */
+    #contributions { padding: 6rem 0; background: var(--bg2); }
+    .contributions-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin-bottom: 5rem; }
+    .contrib-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; }
+    .contrib-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1.8rem 1.5rem; position: relative;
+      transition: border-color .3s, transform .3s;
+    }
+    .contrib-card:hover { border-color: var(--accent); transform: translateY(-3px); }
+    .contrib-num {
+      font-family: var(--mono); font-size: 2rem; font-weight: 500;
+      color: rgba(143,186,90,.15); position: absolute; top: 1rem; right: 1.2rem;
+    }
+    .contrib-icon { font-size: 1.4rem; margin-bottom: .8rem; }
+    .contrib-title { font-size: .92rem; font-weight: 500; color: var(--white); margin-bottom: .5rem; }
+    .contrib-desc { font-size: .82rem; color: var(--text-dim); line-height: 1.6; }
+
+    /* ─── Method ───────────────────────────────────────────── */
+    #method { padding: 6rem 0; }
+    .method-intro {
+      font-family: var(--serif); font-size: 1.05rem; color: var(--text-dim);
+      max-width: 700px; margin-bottom: 3.5rem;
+    }
+    .pipeline-diagram {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+      padding: 2.5rem; margin-bottom: 3rem; position: relative; overflow: hidden;
+    }
+    .pipeline-diagram::after {
+      content: 'PIPELINE'; position: absolute; right: 1.5rem; top: 1.2rem;
+      font-family: var(--mono); font-size: .65rem; color: var(--text-muted);
+      letter-spacing: .2em;
+    }
+    /* Simplified SVG pipeline */
+    .pipeline-svg { width: 100%; max-width: 900px; display: block; margin: 0 auto; }
+
+    .modules-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+    .module-card {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1.5rem; transition: border-color .3s;
+    }
+    .module-card:hover { border-color: rgba(143,186,90,.5); }
+    .module-tag {
+      display: inline-block; font-family: var(--mono); font-size: .68rem;
+      letter-spacing: .12em; color: var(--accent); background: rgba(143,186,90,.1);
+      padding: .15rem .5rem; border-radius: 2px; margin-bottom: .8rem;
+    }
+    .module-name { font-size: .9rem; font-weight: 500; color: var(--white); margin-bottom: .5rem; }
+    .module-desc { font-size: .8rem; color: var(--text-dim); line-height: 1.6; }
+
+    /* ─── Results ──────────────────────────────────────────── */
+    #results { padding: 6rem 0; background: var(--bg2); }
+    .results-intro {
+      font-family: var(--serif); font-size: 1.05rem; color: var(--text-dim); max-width: 700px; margin-bottom: 3rem;
+    }
+    .results-tabs { display: flex; gap: .5rem; margin-bottom: 2rem; }
+    .tab-btn {
+      font-family: var(--mono); font-size: .75rem; letter-spacing: .08em;
+      padding: .4rem 1rem; border-radius: 2px; cursor: pointer;
+      background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+      transition: all .2s;
+    }
+    .tab-btn.active { background: var(--accent); color: #0a0c08; border-color: var(--accent); }
+    .tab-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Results table */
+    .results-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 4px; }
+    .results-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .results-table th {
+      font-family: var(--mono); font-size: .68rem; letter-spacing: .09em;
+      text-transform: uppercase; color: var(--text-muted);
+      padding: .7rem 1rem; text-align: left; background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+    .results-table td { padding: .6rem 1rem; border-bottom: 1px solid rgba(160,185,120,0.06); white-space: nowrap; }
+    .results-table tr:last-child td { border-bottom: none; }
+    .results-table .section-row td {
+      background: rgba(143,186,90,.04);
+      font-family: var(--mono); font-size: .65rem; color: var(--text-muted);
+      letter-spacing: .1em; text-transform: uppercase; padding: .4rem 1rem;
+    }
+    .results-table .ours td { background: rgba(143,186,90,.07); }
+    .results-table .ours td:first-child { color: var(--accent); font-weight: 500; }
+    .results-table .bold { font-weight: 600; color: var(--accent2); }
+    .results-table .underline { text-decoration: underline; text-underline-offset: 3px; color: var(--text); }
+
+    /* Metrics strip */
+    .metrics-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-top: 2.5rem; }
+    .metric-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1.5rem; text-align: center;
+    }
+    .metric-val { font-family: var(--serif); font-size: 2.2rem; color: var(--accent2); line-height: 1; margin-bottom: .4rem; }
+    .metric-label { font-family: var(--mono); font-size: .65rem; letter-spacing: .12em; color: var(--text-muted); }
+
+    /* ─── Qualitative ──────────────────────────────────────── */
+    #qualitative { padding: 6rem 0; }
+    .qual-intro { font-family: var(--serif); font-size: 1.05rem; color: var(--text-dim); max-width: 700px; margin-bottom: 3rem; }
+    .qual-note {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1.8rem; font-family: var(--serif); font-size: 1rem;
+      color: var(--text-dim); line-height: 1.8;
+    }
+    .qual-note strong { color: var(--accent); }
+    .failure-note {
+      margin-top: 1.5rem; background: rgba(143,186,90,.04);
+      border: 1px solid rgba(143,186,90,.12); border-radius: 4px;
+      padding: 1.5rem; font-size: .85rem; color: var(--text-dim);
+    }
+    .failure-note .label { font-family: var(--mono); font-size: .7rem; color: var(--text-muted); letter-spacing: .1em; margin-bottom: .5rem; }
+
+    /* ─── Ablation ─────────────────────────────────────────── */
+    #ablation { padding: 6rem 0; background: var(--bg2); }
+    .ablation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+    .ablation-card {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1.8rem;
+    }
+    .ablation-card h4 { font-family: var(--mono); font-size: .72rem; color: var(--accent); letter-spacing: .1em; margin-bottom: 1.2rem; }
+    .ablation-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .ablation-table th {
+      font-family: var(--mono); font-size: .65rem; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .09em;
+      padding: .4rem .7rem; border-bottom: 1px solid var(--border); text-align: left;
+    }
+    .ablation-table td { padding: .5rem .7rem; border-bottom: 1px solid rgba(160,185,120,0.06); }
+    .ablation-table tr:last-child td { border-bottom: none; }
+    .ablation-table .full td { color: var(--accent); font-weight: 500; }
+    .ablation-table .neg { color: #e07070; font-size: .75rem; }
+    .bar-wrap { height: 6px; background: rgba(255,255,255,.06); border-radius: 3px; overflow: hidden; margin-top: 2px; }
+    .bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 1s ease; }
+
+    /* ─── Citation ─────────────────────────────────────────── */
+    #citation { padding: 6rem 0; }
+    .bibtex-wrap {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 4px;
+      position: relative; overflow: hidden;
+    }
+    .bibtex-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .8rem 1.2rem; border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.2);
+    }
+    .bibtex-label { font-family: var(--mono); font-size: .7rem; color: var(--text-muted); letter-spacing: .1em; }
+    .copy-btn {
+      font-family: var(--mono); font-size: .7rem; color: var(--accent);
+      background: transparent; border: 1px solid var(--accent);
+      padding: .2rem .6rem; border-radius: 2px; cursor: pointer;
+      transition: background .2s; letter-spacing: .05em;
+    }
+    .copy-btn:hover { background: rgba(143,186,90,.15); }
+    .bibtex-code {
+      padding: 1.5rem 1.5rem; font-family: var(--mono); font-size: .78rem;
+      color: var(--text-dim); line-height: 1.7;
+      overflow-x: auto; white-space: pre;
+    }
+
+    /* ─── Footer ───────────────────────────────────────────── */
+    footer {
+      padding: 3rem 2rem; text-align: center;
+      border-top: 1px solid var(--border);
+    }
+    footer p { font-family: var(--mono); font-size: .72rem; color: var(--text-muted); line-height: 1.8; }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { color: var(--accent2); }
+
+    .img-placeholder {
+      width: 100%; border: 2px dashed rgba(143,186,90,.3); border-radius: 4px;
+      background: rgba(143,186,90,.03);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: .6rem; cursor: pointer; transition: border-color .2s, background .2s;
+      position: relative; overflow: hidden;
+    }
+    .img-placeholder:hover { border-color: rgba(143,186,90,.6); background: rgba(143,186,90,.06); }
+    .img-placeholder .ph-icon { font-size: 2rem; opacity: .4; }
+    .img-placeholder .ph-title {
+      font-family: var(--mono); font-size: .75rem; letter-spacing: .12em;
+      color: var(--accent); text-transform: uppercase;
+    }
+    .img-placeholder .ph-sub {
+      font-family: var(--mono); font-size: .68rem; color: var(--text-muted);
+    }
+    .img-placeholder .ph-corner {
+      position: absolute; font-family: var(--mono); font-size: .62rem;
+      color: var(--text-muted); letter-spacing: .1em;
+    }
+    .img-placeholder .ph-corner.tl { top: .8rem; left: .9rem; }
+    .img-placeholder .ph-corner.tr { top: .8rem; right: .9rem; }
+    .img-placeholder img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 3px; }
+
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity .7s ease, transform .7s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ─── Responsive ───────────────────────────────────────── */
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.2rem; }
+      .nav-links { gap: 1.2rem; }
+      .abstract-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .modules-grid { grid-template-columns: 1fr; }
+      .metrics-strip { grid-template-columns: 1fr 1fr; }
+      .ablation-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 540px) {
+      .nav-links { display: none; }
+      .metrics-strip { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────────── -->
+<nav>
+  <span class="nav-logo">OVCIS · IJCV 2026</span>
+  <div class="nav-links">
+    <a href="#abstract">Abstract</a>
+    <a href="#method">Method</a>
+    <a href="#results">Results</a>
+    <a href="#ablation">Ablation</a>
+    <a href="#citation">Cite</a>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────── -->
+<section id="hero">
+  <div class="hero-bg-rings">
+    <span></span><span></span><span></span><span></span>
+  </div>
+
+  <div class="venue-badge">International Journal of Computer Vision &nbsp;·&nbsp; 2026</div>
+
+  <h1 class="hero-title">
+    Catch Me If You Can Describe Me:<br/>
+    <em>Open-Vocabulary Camouflaged Instance Segmentation</em><br/>with Diffusion
+  </h1>
+
+  <p class="hero-subtitle">Open-Vocabulary &nbsp;·&nbsp; Camouflaged Instance Segmentation &nbsp;·&nbsp; Text-to-Image Diffusion</p>
+
+  <div class="authors">
+    <span class="author corr">Tuan-Anh Vu<sup>1,2</sup></span>
+    <span class="author corr">Duc Thanh Nguyen<sup>3</sup></span>
+    <span class="author corr">Qing Guo<sup>4</sup></span>
+    <span class="author">Nhat Chung<sup>2,5</sup></span>
+    <span class="author">Binh-Son Hua<sup>6</sup></span>
+    <span class="author">Ivor W. Tsang<sup>2</sup></span>
+    <span class="author">Sai-Kit Yeung<sup>1</sup></span>
+  </div>
+
+  <p class="affiliations">
+    <sup>1</sup>HKUST &nbsp;&nbsp;
+    <sup>2</sup>CFAR &amp; IHPC, A*STAR &nbsp;&nbsp;
+    <sup>3</sup>Deakin University &nbsp;&nbsp;
+    <sup>4</sup>Nankai University &nbsp;&nbsp;
+    <sup>5</sup>NUS &nbsp;&nbsp;
+    <sup>6</sup>Trinity College Dublin
+  </p>
+
+  <div class="hero-btns">
+    <a href="static/OVCIS_Paper.pdf" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Paper (IJCV)
+    </a>
+    <a href="#" class="btn btn-outline">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      Code (GitHub) - TBD
+    </a>
+    <!-- <a href="#" class="btn btn-outline">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      arXiv
+    </a> -->
+    <a href="#results" class="btn btn-outline">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Results
+    </a>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Abstract ──────────────────────────────── -->
+<section id="abstract">
+  <div class="container">
+    <div class="abstract-grid reveal">
+      <div>
+        <p class="section-label">Abstract</p>
+        <h2 class="section-title">Cross-domain representations<br/>for hidden targets</h2>
+        <div class="abstract-text">
+          <p>Text-to-image diffusion techniques have shown exceptional capabilities in producing high-quality, dense visual predictions from open-vocabulary text. However, these advantages do not hold for camouflaged individuals because of the significant blending between their visual boundaries and their surroundings.</p>
+          <p>We propose a method built upon state-of-the-art diffusion empowered by open-vocabulary to learn multi-scale textual-visual features for camouflaged object representation learning. Such cross-domain representations are desirable in segmenting camouflaged objects where visual cues subtly distinguish objects from the background, and in segmenting novel classes unseen during training.</p>
+          <p>We devise complementary modules to effectively fuse cross-domain features and engage relevant features towards respective foreground objects. Extensive experiments confirm the advances of our method over existing baselines on camouflaged and generic open-vocabulary instance segmentation benchmarks.</p>
+        </div>
+        <div class="abstract-keywords">
+          <p class="kw-label">KEYWORDS</p>
+          <div class="kw-list">
+            <span class="kw">Camouflaged Instance Segmentation</span>
+            <span class="kw">Open Vocabulary</span>
+            <span class="kw">Text-to-Image Diffusion</span>
+            <span class="kw">CLIP</span>
+            <span class="kw">Stable Diffusion</span>
+            <span class="kw">Mask2Former</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="teaser-card">
+          <p class="teaser-title">TASK COMPARISON</p>
+          <table class="task-table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Instance Sep.</th>
+                <th>Vocabulary</th>
+                <th>Supervision</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>COD</strong></td>
+                <td class="cross">✗</td>
+                <td>N/A</td>
+                <td>Binary mask</td>
+              </tr>
+              <tr>
+                <td><strong>CIS</strong></td>
+                <td class="check">✓</td>
+                <td>Closed</td>
+                <td>Instance masks</td>
+              </tr>
+              <tr class="highlight">
+                <td><strong>OVCIS (Ours)</strong></td>
+                <td class="check">✓</td>
+                <td>Open-vocab</td>
+                <td>Masks + categories</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="teaser-card" style="margin-top:1.5rem;">
+          <p class="teaser-title">CORE INSIGHT</p>
+          <p style="font-family:var(--serif);font-size:1rem;line-height:1.7;color:var(--text-dim);">
+            When visual features alone fail to distinguish camouflaged objects from cluttered backgrounds, 
+            textual representations learnt from large-scale language-image data provide rich, 
+            complementary cues that dramatically improve discriminability.
+          </p>
+          <div style="margin-top:1.2rem;display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
+            <div style="background:rgba(143,186,90,.06);border:1px solid var(--border);border-radius:3px;padding:.8rem;text-align:center;">
+              <div style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted);margin-bottom:.3rem;">VISUAL-ONLY AP</div>
+              <div style="font-family:var(--serif);font-size:1.6rem;color:#e07070;">12.2</div>
+            </div>
+            <div style="background:rgba(143,186,90,.06);border:1px solid var(--border);border-radius:3px;padding:.8rem;text-align:center;">
+              <div style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted);margin-bottom:.3rem;">TEXTUAL-VISUAL AP</div>
+              <div style="font-family:var(--serif);font-size:1.6rem;color:var(--accent2);">23.9</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Contributions ──────────────────────────── -->
+<section id="contributions">
+  <div class="container">
+    <p class="section-label reveal">Contributions</p>
+    <h2 class="section-title reveal">What we propose</h2>
+    <div class="contrib-grid">
+      <div class="contrib-card reveal">
+        <div class="contrib-num">01</div>
+        <div class="contrib-icon">🎯</div>
+        <div class="contrib-title">New Task: OVCIS</div>
+        <div class="contrib-desc">We define and address Open-Vocabulary Camouflaged Instance Segmentation — the first framework to unify camouflage understanding, instance separation, and open-vocabulary recognition.</div>
+      </div>
+      <div class="contrib-card reveal">
+        <div class="contrib-num">02</div>
+        <div class="contrib-icon">🔀</div>
+        <div class="contrib-title">Diffusion-based Pipeline</div>
+        <div class="contrib-desc">A method built on Stable Diffusion and CLIP that fuses multi-scale visual and textual features to learn powerful cross-domain representations for camouflaged targets.</div>
+      </div>
+      <div class="contrib-card reveal">
+        <div class="contrib-num">03</div>
+        <div class="contrib-icon">🧩</div>
+        <div class="contrib-title">Specialised Modules</div>
+        <div class="contrib-desc">Three novel components — MSFF, TVA, and CIN — tailored specifically to enhance camouflaged object representations through multi-scale fusion and textual guidance.</div>
+      </div>
+      <div class="contrib-card reveal">
+        <div class="contrib-num">04</div>
+        <div class="contrib-icon">📊</div>
+        <div class="contrib-title">Comprehensive Evaluation</div>
+        <div class="contrib-desc">Extensive experiments on COD10K-v3, NC4K, ADE20K, and Cityscapes benchmarks with ablation studies validating each design choice.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Method ────────────────────────────────── -->
+<section id="method">
+  <div class="container">
+    <p class="section-label reveal">Method</p>
+    <h2 class="section-title reveal">Pipeline Overview</h2>
+    <p class="method-intro reveal">Our pipeline takes an image and a text prompt about target objects, producing instance masks with open-vocabulary category labels. The SD and CLIP models are frozen; only the specialised modules are trained.</p>
+
+    <!-- Pipeline image placeholder -->
+    <div class="pipeline-diagram reveal" style="padding:0;border-radius:4px;overflow:hidden;">
+      <!-- <div class="img-placeholder" id="pipeline-ph" style="min-height:380px;" onclick="document.getElementById('pipeline-upload').click()">
+        <span class="ph-corner tl">FIGURE 2</span>
+        <span class="ph-corner tr">pipeline.png / pipeline.jpg</span>
+        <div class="ph-icon">🖼</div>
+        <p class="ph-title">Pipeline Diagram</p>
+        <p class="ph-sub">Click to upload · or replace src in &lt;img&gt; tag</p>
+        <p style="font-family:var(--mono);font-size:.62rem;color:var(--text-muted);margin-top:.2rem;">
+          Recommended: replace with your Fig. 2 image file
+        </p>
+      </div> -->
+      <!-- <input type="file" id="pipeline-upload" accept="image/*" style="display:none" onchange="previewImg('pipeline-upload','pipeline-ph')"/> -->
+       <img src="static/camo_pipeline.png" alt="Pipeline" style="width:100%;border-radius:4px;display:block;"/>
+    </div>
+
+    <!-- Module cards -->
+    <div class="modules-grid">
+      <div class="module-card reveal">
+        <span class="module-tag">MSFF</span>
+        <p class="module-name">Multi-scale Features Fusion</p>
+        <p class="module-desc">Fuses multi-scale features from the SD encoder with the final decoder layer via 1×1 convolution, element-wise multiplication, and residual addition. Captures both fine-grained and broad contextual information critical for detecting objects at varying scales.</p>
+      </div>
+      <div class="module-card reveal">
+        <span class="module-tag">TVA</span>
+        <p class="module-name">Textual-Visual Aggregation</p>
+        <p class="module-desc">Computes instance-aware cross-modal interactions between mask embeddings and CLIP text embeddings. Uses softmax-weighted dot product with mean-normalisation to remove background noise and focus features on text-specified foreground objects.</p>
+      </div>
+      <div class="module-card reveal">
+        <span class="module-tag">CIN</span>
+        <p class="module-name">Camouflaged Instance Normalisation</p>
+        <p class="module-desc">Inspired by adaptive instance normalisation, CIN applies learnable affine transformations to textual-visual features conditioned on instance masks, producing final refined masks. Uses a confidence score rather than a class score for category-agnostic instance existence.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Results ────────────────────────────────── -->
+<section id="results">
+  <div class="container">
+    <p class="section-label reveal">Experiments</p>
+    <h2 class="section-title reveal">Quantitative Results</h2>
+    <p class="results-intro reveal">Pre-trained on MS-COCO (80 categories), fine-tuned on COD10K-v3. Only 6 categories are shared between training and test datasets, validating open-vocabulary generalisation.</p>
+
+    <div class="results-tabs reveal">
+      <button class="tab-btn active" onclick="switchTab('cod')">COD10K-v3</button>
+      <button class="tab-btn" onclick="switchTab('nc4k')">NC4K</button>
+      <button class="tab-btn" onclick="switchTab('generic')">Generic OV Datasets</button>
+    </div>
+
+    <!-- COD10K-v3 -->
+    <div id="tab-cod" class="tab-panel active reveal">
+      <div class="results-table-wrap">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>AP</th>
+              <th>AP<sub>50</sub></th>
+              <th>AP<sub>75</sub></th>
+              <th>Trainable Params (M)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="section-row"><td colspan="5">Closed-set Supervised Learning</td></tr>
+            <tr><td>Mask R-CNN</td><td>25.0</td><td>55.5</td><td>20.4</td><td>43.9</td></tr>
+            <tr><td>SOLOv2</td><td>32.5</td><td>63.2</td><td>29.9</td><td>46.2</td></tr>
+            <tr><td>Mask2Former</td><td>39.4</td><td>67.7</td><td>38.5</td><td>43.9</td></tr>
+            <tr><td>OSFormer</td><td>41.0</td><td>71.1</td><td>40.8</td><td>46.6</td></tr>
+            <tr><td>UQFormer</td><td class="underline">45.2</td><td>71.6</td><td class="underline">46.6</td><td>37.5</td></tr>
+            <tr><td>DCNet</td><td class="bold">45.3</td><td class="underline">70.7</td><td class="bold">47.5</td><td>53.4</td></tr>
+            <tr class="section-row"><td colspan="5">Open-Vocab T2I (w/o fine-tuning)</td></tr>
+            <tr><td>ODISE</td><td>21.1</td><td>37.8</td><td>20.5</td><td>28.1</td></tr>
+            <tr class="ours"><td>Ours</td><td>23.9</td><td>44.3</td><td>23.1</td><td>28.7</td></tr>
+            <tr class="ours"><td>Ours (task-specific)</td><td class="underline">45.1</td><td class="bold">71.1</td><td>47.4</td><td><strong style="color:var(--accent2)">28.7</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- NC4K -->
+    <div id="tab-nc4k" class="tab-panel reveal">
+      <div class="results-table-wrap">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>AP</th>
+              <th>AP<sub>50</sub></th>
+              <th>AP<sub>75</sub></th>
+              <th>Trainable Params (M)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="section-row"><td colspan="5">Closed-set Supervised Learning</td></tr>
+            <tr><td>Mask2Former</td><td>45.8</td><td>73.6</td><td>47.5</td><td>43.9</td></tr>
+            <tr><td>OSFormer</td><td>42.5</td><td>72.5</td><td>42.3</td><td>46.6</td></tr>
+            <tr><td>DCNet</td><td class="bold">52.8</td><td class="bold">77.1</td><td class="bold">56.5</td><td>53.4</td></tr>
+            <tr class="section-row"><td colspan="5">Open-Vocab T2I (w/o fine-tuning)</td></tr>
+            <tr><td>ODISE</td><td>22.9</td><td>37.2</td><td>21.4</td><td>28.1</td></tr>
+            <tr class="ours"><td>Ours</td><td>24.8</td><td>44.2</td><td>23.9</td><td>28.7</td></tr>
+            <tr class="ours"><td>Ours (task-specific)</td><td class="underline">52.9</td><td class="underline">76.8</td><td class="underline">55.9</td><td><strong style="color:var(--accent2)">28.7</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Generic -->
+    <div id="tab-generic" class="tab-panel reveal">
+      <div class="results-table-wrap">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>ADE20K AP</th>
+              <th>Cityscapes AP</th>
+              <th>Trainable Params (M)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>MaskCLIP</td><td>6.1</td><td>—</td><td>354.1</td></tr>
+            <tr><td>ODISE</td><td>13.9</td><td>—</td><td>28.1</td></tr>
+            <tr><td>X-Decoder</td><td>13.1</td><td>24.9</td><td>38.3</td></tr>
+            <tr><td>OpenSeeD</td><td class="bold">15.0</td><td class="bold">33.2</td><td>116.2</td></tr>
+            <tr class="ours"><td>Ours</td><td class="underline">14.1</td><td class="underline">25.6</td><td><strong style="color:var(--accent2)">28.7</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:.8rem;color:var(--text-muted);margin-top:.8rem;font-family:var(--mono);">
+        ↗ 2nd on both benchmarks, with ~4× fewer trainable parameters than OpenSeeD at similar performance.
+      </p>
+    </div>
+
+    <!-- Metrics strip -->
+    <div class="metrics-strip reveal">
+      <div class="metric-card">
+        <div class="metric-val">45.1</div>
+        <div class="metric-label">AP · COD10K-v3</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">52.9</div>
+        <div class="metric-label">AP · NC4K</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">28.7M</div>
+        <div class="metric-label">Trainable Params</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">1.88%</div>
+        <div class="metric-label">% of Total Params</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Qualitative ───────────────────────────── -->
+<section id="qualitative">
+  <div class="container">
+    <p class="section-label reveal">Qualitative Analysis</p>
+    <h2 class="section-title reveal">Visual Comparisons</h2>
+
+    <div class="qual-note reveal">
+      Our method excels at <strong>pixel-level instance segmentation</strong>, accurately delineating
+      camouflaged objects along their blurry boundaries in cluttered backgrounds.
+      Compared to OSFormer, DCNet, and ODISE baselines, our approach produces
+      <strong>crisper mask boundaries</strong> and better handles <strong>multiple overlapping instances</strong>
+      in complex underwater and terrestrial scenes. The textual-visual features
+      learned by our pipeline visibly cluster around foreground objects even when their boundaries
+      are nearly imperceptible to visual-only models.
+    </div>
+
+    <!-- Figure 7: Qualitative comparison -->
+    <div style="margin-top:2.5rem;" class="reveal">
+      <p style="font-family:var(--mono);font-size:.7rem;color:var(--text-muted);letter-spacing:.12em;margin-bottom:.8rem;">
+        Qualitative comparison on COD10K-v3 &amp; NC4K
+        <span style="color:var(--text-muted);font-size:.62rem;">(Input / GT / OSFormer / DCNet / ODISE / Ours)</span>
+      </p>
+      <!-- <div class="img-placeholder" id="qual-ph" style="min-height:420px;" onclick="document.getElementById('qual-upload').click()">
+        <span class="ph-corner tl">FIGURE 7</span>
+        <span class="ph-corner tr">qualitative.png / qualitative.jpg</span>
+        <div class="ph-icon">🖼</div>
+        <p class="ph-title">Qualitative Comparison</p>
+        <p class="ph-sub">Click to upload · or replace src in &lt;img&gt; tag</p>
+        <p style="font-family:var(--mono);font-size:.62rem;color:var(--text-muted);margin-top:.2rem;">
+          Recommended: export Fig. 7 from the paper at ≥1200px wide
+        </p>
+      </div> -->
+      <!-- <input type="file" id="qual-upload" accept="image/*" style="display:none" onchange="previewImg('qual-upload','qual-ph')"/> -->
+           <img src="static/cod_vis.png" alt="Qualitative comparison" style="width:100%;border-radius:4px;display:block;"/>
+    </div>
+
+    <!-- Figure 8: Failure cases -->
+    <div style="margin-top:2.5rem;" class="reveal">
+      <p style="font-family:var(--mono);font-size:.7rem;color:var(--text-muted);letter-spacing:.12em;margin-bottom:.8rem;">
+        Failure cases on COD10K-v3
+      </p>
+      <!-- <div class="img-placeholder" id="failure-ph" style="min-height:280px;" onclick="document.getElementById('failure-upload').click()">
+        <span class="ph-corner tl">FIGURE 8</span>
+        <span class="ph-corner tr">failure_cases.png / failure_cases.jpg</span>
+        <div class="ph-icon">🖼</div>
+        <p class="ph-title">Failure Cases</p>
+        <p class="ph-sub">Click to upload · or replace src in &lt;img&gt; tag</p>
+        <p style="font-family:var(--mono);font-size:.62rem;color:var(--text-muted);margin-top:.2rem;">
+          Recommended: export Fig. 8 from the paper at ≥1200px wide
+        </p>
+      </div> -->
+      <!-- <input type="file" id="failure-upload" accept="image/*" style="display:none" onchange="previewImg('failure-upload','failure-ph')"/> -->
+      <img src="static/failure_cases.png" alt="Failure cases" style="width:100%;border-radius:4px;display:block;"/>
+    </div>
+
+    <div class="failure-note reveal">
+      <p class="label">LIMITATIONS &amp; FAILURE CASES</p>
+      <p>Our method may struggle to (1) separate touching/overlapping instances of highly similar appearance, (2) handle severely occluded objects that are fragmented into non-semantic parts, and (3) segment objects with extreme spatial discontinuity (e.g., an animal's body occluded by a tree). These are inherent challenges in camouflage understanding that represent avenues for future work.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Ablation ──────────────────────────────── -->
+<section id="ablation">
+  <div class="container">
+    <p class="section-label reveal">Ablation</p>
+    <h2 class="section-title reveal">Module &amp; Design Validation</h2>
+
+    <div class="ablation-grid">
+      <div class="ablation-card reveal">
+        <h4>MODULE ABLATION · COD10K-v3</h4>
+        <table class="ablation-table">
+          <thead>
+            <tr><th>Variant</th><th>AP</th><th>ΔAP</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>No text (embed = 0)</td><td>12.2</td><td class="neg">−7.1</td></tr>
+            <tr><td>Skip MSFF (last layer only)</td><td>18.4</td><td class="neg">−0.9</td></tr>
+            <tr><td>Skip MSFF (concat all)</td><td>18.1</td><td class="neg">−1.2</td></tr>
+            <tr><td>Skip CIN module</td><td>17.6</td><td class="neg">−1.7</td></tr>
+            <tr><td>Skip TVA module</td><td>18.8</td><td class="neg">−0.5</td></tr>
+            <tr class="full"><td>Full setting</td><td>19.3</td><td style="color:var(--accent)">—</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:.75rem;color:var(--text-muted);margin-top:.8rem;font-family:var(--mono);">
+          Text embeddings are the most critical component — removing them causes a 37% AP drop.
+        </p>
+      </div>
+
+      <div class="ablation-card reveal">
+        <h4>PROMPT ENGINEERING · COD10K-v3</h4>
+        <table class="ablation-table">
+          <thead>
+            <tr><th>Prompt Strategy</th><th>AP</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>"A photo of &lt;class&gt;."</td><td>22.8</td></tr>
+            <tr><td>+ Synonym ensembling</td><td>23.4</td></tr>
+            <tr class="full"><td>+ Camouflage-specific templates</td><td>23.9</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:1.2rem;">
+          <p style="font-family:var(--mono);font-size:.7rem;color:var(--text-muted);margin-bottom:.5rem;">TEMPLATE EXAMPLES</p>
+          <div style="font-size:.75rem;color:var(--text-dim);line-height:1.9;">
+            ☞ "A photo of the camouflaged &lt;class&gt;."<br/>
+            ☞ "A photo of the &lt;class&gt; concealed in the background."<br/>
+            ☞ "A photo of the &lt;class&gt; camouflaged to blend in with its surroundings."
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIP zero-shot capability -->
+    <div class="ablation-card reveal" style="margin-top:1.5rem;background:var(--bg);">
+      <h4>CLIP ZERO-SHOT CLASSIFICATION ON CAMOUFLAGED DATASETS</h4>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-top:1rem;">
+        <div style="text-align:center;">
+          <div style="font-family:var(--serif);font-size:2rem;color:var(--accent2)">48.1%</div>
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted)">COD10K-v3</div>
+          <div class="bar-wrap" style="margin-top:.5rem;"><div class="bar" style="width:48.1%"></div></div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:var(--serif);font-size:2rem;color:var(--accent2)">45.7%</div>
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted)">NC4K</div>
+          <div class="bar-wrap" style="margin-top:.5rem;"><div class="bar" style="width:45.7%"></div></div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:var(--serif);font-size:2rem;color:var(--accent2)">46.5%</div>
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--text-muted)">CAMO</div>
+          <div class="bar-wrap" style="margin-top:.5rem;"><div class="bar" style="width:46.5%"></div></div>
+        </div>
+      </div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-top:1rem;font-family:var(--mono);">
+        CLIP's reasonable zero-shot accuracy on camouflaged datasets confirms the utility of textual supervision even in challenging visual scenarios.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Citation ──────────────────────────────── -->
+<section id="citation">
+  <div class="container">
+    <p class="section-label reveal">Citation</p>
+    <h2 class="section-title reveal">How to Cite</h2>
+
+    <div class="bibtex-wrap reveal">
+      <div class="bibtex-header">
+        <span class="bibtex-label">BIBTEX</span>
+        <button class="copy-btn" onclick="copyBib()">Copy</button>
+      </div>
+      <div class="bibtex-code" id="bibtex-content">@article{vu2026ovcis,
+  title     = {Catch Me If You Can Describe Me: Open-Vocabulary 
+               Camouflaged Instance Segmentation with Diffusion},
+  author    = {Vu, Tuan-Anh and Nguyen, Duc Thanh and Guo, Qing 
+               and Chung, Nhat and Hua, Binh-Son and Tsang, Ivor W. 
+               and Yeung, Sai-Kit},
+  journal   = {International Journal of Computer Vision},
+  year      = {2026},
+  publisher = {Springer}
+}</div>
+    </div>
+
+    <div style="margin-top:3rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.5rem;" class="reveal">
+      <div class="teaser-card">
+        <p class="teaser-title">DATASETS</p>
+        <p style="font-size:.82rem;color:var(--text-dim);line-height:1.7;">MS-COCO · COD10K-v3 · NC4K · CAMO · ADE20K · Cityscapes</p>
+      </div>
+      <div class="teaser-card">
+        <p class="teaser-title">BACKBONE</p>
+        <p style="font-size:.82rem;color:var(--text-dim);line-height:1.7;">Stable Diffusion v1.3 (LAION-5B) + CLIP ViT (400M pairs)</p>
+      </div>
+      <div class="teaser-card">
+        <p class="teaser-title">TRAINING</p>
+        <p style="font-size:.82rem;color:var(--text-dim);line-height:1.7;">4× NVIDIA A40 · 90k iters · Batch 64 · ~4.3 days</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Footer ────────────────────────────────── -->
+<footer>
+  <p>
+    <strong style="color:var(--accent)">OVCIS</strong> · Open-Vocabulary Camouflaged Instance Segmentation with Diffusion<br/>
+    Accepted at <a href="#">International Journal of Computer Vision (IJCV) 2026</a><br/><br/>
+    Supported by HKUST · A*STAR Singapore · Deakin University · NRF Singapore · Science Foundation Ireland<br/>
+    <span style="color:var(--text-muted);font-size:.65rem;">© 2026 The Authors. Website template for academic paper presentation.</span>
+  </p>
+</footer>
+
+<script>
+  /* Image placeholder preview */
+  function previewImg(inputId, placeholderId) {
+    const input = document.getElementById(inputId);
+    const ph    = document.getElementById(placeholderId);
+    const file  = input.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    ph.innerHTML = `<img src="${url}" alt="preview"/>`;
+    ph.style.minHeight = 'unset';
+    ph.style.cursor = 'default';
+    ph.onclick = null;
+  }
+
+  /* Tab switching */
+  function switchTab(id) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  /* Copy BibTeX */
+  function copyBib() {
+    const text = document.getElementById('bibtex-content').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+  }
+
+  /* Scroll reveal */
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  /* Animate bars when in view */
+  const barObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.querySelectorAll('.bar').forEach(b => {
+          b.style.width = b.style.width; // trigger transition
+        });
+      }
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('.ablation-card').forEach(el => barObserver.observe(el));
+</script>
+</body>
+</html>
